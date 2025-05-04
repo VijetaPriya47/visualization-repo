@@ -1,0 +1,40 @@
+{
+  "type": "targets",
+  "expires": "2026-05-02T15:52:11+05:30",
+  "targets": null,
+  "delegations": {
+    "keys": {
+      "SHA256:CkB1IQxFmvNamf2efSlKWd3mJ2y+5VMmWnG3auT646g": {
+        "keyid_hash_algorithms": null,
+        "keytype": "ssh",
+        "keyval": {
+          "public": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBAr9DvaNo5Rbkm/gGDL9emxErchlg5CVhQgI5sjzOYcIoIfKQntiL3xnP04wf6/x+p0AS3tah2zKUG2Gy2U6Hhk="
+        },
+        "scheme": "ecdsa-sha2-nistp256",
+        "keyid": "SHA256:CkB1IQxFmvNamf2efSlKWd3mJ2y+5VMmWnG3auT646g"
+      }
+    },
+    "roles": [
+      {
+        "name": "protect-main",
+        "paths": [
+          "git:refs/heads/main"
+        ],
+        "terminating": false,
+        "keyids": [
+          "SHA256:CkB1IQxFmvNamf2efSlKWd3mJ2y+5VMmWnG3auT646g"
+        ],
+        "threshold": 1
+      },
+      {
+        "name": "gittuf-allow-rule",
+        "paths": [
+          "*"
+        ],
+        "terminating": true,
+        "keyids": null,
+        "threshold": 1
+      }
+    ]
+  }
+}

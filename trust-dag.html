@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gittuf Trust Relationships DAG</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .node circle {
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 2px rgba(0,0,0,0.3));
+        }
+        .node.role circle {
+            fill: #ffd700;
+            stroke: #b8860b;
+            stroke-width: 3px;
+        }
+        .node.rule circle {
+            fill: #98fb98;
+            stroke: #2e8b57;
+            stroke-width: 3px;
+        }
+        .node.namespace circle {
+            fill: #87ceeb;
+            stroke: #4682b4;
+            stroke-width: 3px;
+        }
+        .node.key circle {
+            fill: #ffb6c1;
+            stroke: #cd5c5c;
+            stroke-width: 3px;
+        }
+        .node.invalid circle {
+            stroke: #ff0000;
+            stroke-width: 4px;
+        }
+        .link {
+            fill: none;
+            stroke: #666;
+            stroke-width: 2px;
+            marker-end: url(#arrowhead);
+        }
+        .node text {
+            font: 14px sans-serif;
+            font-weight: bold;
+            fill: #333;
+        }
+        .node-label {
+            font-size: 16px;
+            font-weight: bold;
+            fill: #000;
+        }
+        .metadata-label {
+            font-size: 12px;
+            fill: #666;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            max-width: 400px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .tooltip h3 {
+            margin: 0 0 5px 0;
+            color: #ffd700;
+        }
+        .tooltip p {
+            margin: 5px 0;
+        }
+        .tooltip .metadata {
+            color: #98fb98;
+        }
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+            border: 2px solid #666;
+        }
+        .search-container {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            z-index: 1000;
+        }
+        .search-input {
+            padding: 10px;
+            width: 250px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .highlight {
+            stroke: #ff0000;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 5px rgba(255,0,0,0.5));
+        }
+        .highlight-path {
+            stroke: #4CAF50;
+            stroke-width: 3px;
+            stroke-dasharray: none;
+            filter: drop-shadow(0 0 3px rgba(76, 175, 80, 0.5));
+        }
+        .highlight-node {
+            filter: drop-shadow(0 0 5px rgba(76, 175, 80, 0.8));
+            stroke: #4CAF50;
+            stroke-width: 3px;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        .button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .button.active {
+            background: #2e7d32;
+        }
+        .button.export {
+            background: #2196F3;
+        }
+        .button.export:hover {
+            background: #1976D2;
+        }
+        .minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .timeline {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: white;
+            border-top: 1px solid #ccc;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .timeline-slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .timeline-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+        .timeline-event {
+            position: absolute;
+            bottom: 30px;
+            width: 2px;
+            height: 20px;
+            background: #4CAF50;
+        }
+        .timeline-event::after {
+            content: attr(data-date);
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 12px;
+            color: #666;
+        }
+        .timeline-event.active {
+            background: #2196F3;
+            height: 30px;
+        }
+        .timeline-event.active::after {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .minimap-viewport {
+            fill: rgba(76, 175, 80, 0.2);
+            stroke: #4CAF50;
+            stroke-width: 1px;
+        }
+        .minimap-nodes circle {
+            fill: #666;
+            stroke: #fff;
+            stroke-width: 1px;
+        }
+        .minimap-links {
+            stroke: #ccc;
+            stroke-width: 1px;
+        }
+        .node.changed circle {
+            stroke: #2196F3;
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 5px rgba(33, 150, 243, 0.5));
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .node.changed text {
+            font-weight: bold;
+            fill: #2196F3;
+        }
+        .change-tooltip {
+            position: absolute;
+            padding: 8px;
+            background: #2196F3;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button class="button" id="highlightTrustPath">Highlight Trust Path</button>
+        <button class="button" id="clearHighlight">Clear Highlight</button>
+        <button class="button export" id="exportPNG">Export PNG</button>
+        <button class="button export" id="exportSVG">Export SVG</button>
+    </div>
+    <div class="search-container">
+        <input type="text" class="search-input" placeholder="Search nodes..." id="searchInput">
+    </div>
+    <div id="graph"></div>
+    <div class="legend">
+        <h3>Node Types</h3>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #fff;"></div>
+            <span>Root of Trust</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffd700;"></div>
+            <span>Role</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #98fb98;"></div>
+            <span>Rule</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #87ceeb;"></div>
+            <span>Namespace</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffb6c1;"></div>
+            <span>Key</span>
+        </div>
+    </div>
+    <div class="minimap" id="minimap"></div>
+    <div class="timeline" id="timeline">
+        <div class="timeline-labels">
+            <span>Initial Policy</span>
+            <span>Current Policy</span>
+        </div>
+        <input type="range" class="timeline-slider" id="timelineSlider" min="0" max="100" value="100">
+        <div id="timelineEvents"></div>
+    </div>
+    <script>
+        // Enhanced data structure with more metadata
+        const data = {
+            name: "Root of Trust",
+            type: "root",
+            metadata: {
+                expires: "2026-05-02T15:52:07+05:30",
+                githubApprovalsTrusted: false
+            },
+            children: [
+                {
+                    name: "Root Role",
+                    type: "role",
+                    metadata: {
+                        keyids: ["SHA256:XKLbCA5qIKrXZYsizSFqhbPq255mwmkcF4OBAc9wOIk"],
+                        threshold: 1,
+                        scheme: "ecdsa-sha2-nistp256",
+                        keytype: "ssh"
+                    },
+                    children: [
+                        {
+                            name: "Targets Role",
+                            type: "role",
+                            metadata: {
+                                keyids: ["SHA256:kaOUPYzxFbhT/r/70icf98tmoimb/az3Y4Fs3ywsHzM"],
+                                threshold: 1,
+                                scheme: "ecdsa-sha2-nistp256",
+                                keytype: "ssh"
+                            },
+                            children: [
+                                {
+                                    name: "protect-main",
+                                    type: "rule",
+                                    metadata: {
+                                        paths: ["git:refs/heads/main"],
+                                        keyids: ["SHA256:CkB1IQxFmvNamf2efSlKWd3mJ2y+5VMmWnG3auT646g"],
+                                        threshold: 1,
+                                        scheme: "ecdsa-sha2-nistp256",
+                                        keytype: "ssh"
+                                    }
+                                },
+                                {
+                                    name: "gittuf-allow-rule",
+                                    type: "rule",
+                                    metadata: {
+                                        paths: ["*"],
+                                        terminating: true,
+                                        threshold: 1
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // Set up the SVG with larger dimensions
+        const width = 1400;
+        const height = 1000;
+        const margin = { top: 40, right: 120, bottom: 40, left: 120 };
+
+        const svg = d3.select("#graph")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Add arrow marker definition
+        svg.append("defs").append("marker")
+            .attr("id", "arrowhead")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 15)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#666");
+
+        // Create the tree layout with better spacing
+        const treeLayout = d3.tree()
+            .size([height - margin.top - margin.bottom, width - margin.left - margin.right])
+            .separation((a, b) => (a.parent === b.parent ? 2 : 3));
+
+        const root = d3.hierarchy(data);
+        const treeData = treeLayout(root);
+
+        // Normalize for fixed-depth with more spacing
+        treeData.descendants().forEach(d => { d.y = d.depth * 250; });
+
+        // Create links with arrows
+        const link = svg.selectAll(".link")
+            .data(treeData.links())
+            .enter()
+            .append("path")
+            .attr("class", "link")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x));
+
+        // Add relationship labels
+        link.append("text")
+            .attr("class", "edge-label")
+            .attr("dy", -5)
+            .attr("text-anchor", "middle")
+            .text(d => {
+                if (d.target.data.type === "rule") return "protects";
+                if (d.target.data.type === "role") return "delegates to";
+                return "";
+            });
+
+        // Create nodes
+        const node = svg.selectAll(".node")
+            .data(treeData.descendants())
+            .enter()
+            .append("g")
+            .attr("class", d => `node ${d.data.type || 'root'}`)
+            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        // Add circles to nodes
+        node.append("circle")
+            .attr("r", 15)
+            .style("fill", d => d.data.type === "role" ? "#ffd700" :
+                              d.data.type === "rule" ? "#98fb98" :
+                              d.data.type === "namespace" ? "#87ceeb" :
+                              d.data.type === "key" ? "#ffb6c1" : "#fff")
+            .style("stroke-width", 3)
+            .style("filter", "drop-shadow(0 0 2px rgba(0,0,0,0.3))");
+
+        // Add node labels
+        node.append("text")
+            .attr("class", "node-label")
+            .attr("dy", ".35em")
+            .attr("x", d => d.children ? -18 : 18)
+            .style("text-anchor", d => d.children ? "end" : "start")
+            .style("font-weight", "bold")
+            .style("font-size", "16px")
+            .text(d => d.data.name);
+
+        // Add metadata labels
+        node.append("text")
+            .attr("class", "metadata-label")
+            .attr("dy", "1.5em")
+            .attr("x", d => d.children ? -18 : 18)
+            .style("text-anchor", d => d.children ? "end" : "start")
+            .style("font-size", "12px")
+            .text(d => {
+                if (d.data.metadata) {
+                    if (d.data.metadata.threshold) return `Threshold: ${d.data.metadata.threshold}`;
+                    if (d.data.metadata.paths) return `Paths: ${d.data.metadata.paths.join(', ')}`;
+                }
+                return "";
+            });
+
+        // Add tooltips
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Add trust path highlighting functionality
+        let selectedNode = null;
+        let isHighlighting = false;
+
+        function highlightTrustPath(node) {
+            // Clear previous highlights
+            svg.selectAll(".link").classed("highlight-path", false);
+            svg.selectAll(".node circle").classed("highlight-node", false);
+
+            if (!node) return;
+
+            // Highlight the path from root to selected node
+            let current = node;
+            const path = [];
+            
+            // Build the path from node to root
+            while (current) {
+                path.unshift(current);
+                current = current.parent;
+            }
+
+            // Highlight the path
+            for (let i = 0; i < path.length - 1; i++) {
+                const source = path[i];
+                const target = path[i + 1];
+                
+                // Highlight the link
+                svg.selectAll(".link")
+                    .filter(d => d.source === source && d.target === target)
+                    .classed("highlight-path", true);
+                
+                // Highlight the nodes
+                svg.selectAll(".node")
+                    .filter(d => d === source)
+                    .select("circle")
+                    .classed("highlight-node", true);
+            }
+
+            // Highlight the last node
+            svg.selectAll(".node")
+                .filter(d => d === path[path.length - 1])
+                .select("circle")
+                .classed("highlight-node", true);
+        }
+
+        // Add click handler for nodes
+        node.on("click", function(event, d) {
+            if (isHighlighting) {
+                selectedNode = d;
+                highlightTrustPath(d);
+                event.stopPropagation(); // Prevent event bubbling
+            }
+        });
+
+        // Add click handler for the SVG to clear highlights when clicking outside
+        svg.on("click", function() {
+            if (isHighlighting) {
+                selectedNode = null;
+                svg.selectAll(".link").classed("highlight-path", false);
+                svg.selectAll(".node circle").classed("highlight-node", false);
+            }
+        });
+
+        // Add highlight mode toggle
+        document.getElementById("highlightTrustPath").addEventListener("click", function() {
+            isHighlighting = !isHighlighting;
+            this.classList.toggle("active");
+            if (!isHighlighting) {
+                selectedNode = null;
+                svg.selectAll(".link").classed("highlight-path", false);
+                svg.selectAll(".node circle").classed("highlight-node", false);
+            }
+        });
+
+        // Add clear highlight button
+        document.getElementById("clearHighlight").addEventListener("click", function() {
+            isHighlighting = false;
+            selectedNode = null;
+            document.getElementById("highlightTrustPath").classList.remove("active");
+            svg.selectAll(".link").classed("highlight-path", false);
+            svg.selectAll(".node circle").classed("highlight-node", false);
+        });
+
+        // Modify hover tooltip to show trust path information
+        node.on("mouseover", function(event, d) {
+            d3.select(this).select("circle").classed("highlight", true);
+            
+            let tooltipContent = `<h3>${d.data.name}</h3>`;
+            if (d.data.type) tooltipContent += `<p><strong>Type:</strong> ${d.data.type}</p>`;
+            
+            if (d.data.metadata) {
+                tooltipContent += '<div class="metadata">';
+                if (d.data.metadata.keyids) tooltipContent += `<p><strong>Key IDs:</strong> ${d.data.metadata.keyids.join(', ')}</p>`;
+                if (d.data.metadata.threshold) tooltipContent += `<p><strong>Threshold:</strong> ${d.data.metadata.threshold}</p>`;
+                if (d.data.metadata.paths) tooltipContent += `<p><strong>Paths:</strong> ${d.data.metadata.paths.join(', ')}</p>`;
+                if (d.data.metadata.scheme) tooltipContent += `<p><strong>Scheme:</strong> ${d.data.metadata.scheme}</p>`;
+                if (d.data.metadata.keytype) tooltipContent += `<p><strong>Key Type:</strong> ${d.data.metadata.keytype}</p>`;
+                if (d.data.metadata.terminating) tooltipContent += `<p><strong>Terminating:</strong> true</p>`;
+                if (d.data.metadata.expires) tooltipContent += `<p><strong>Expires:</strong> ${d.data.metadata.expires}</p>`;
+                if (d.data.metadata.githubApprovalsTrusted !== undefined) {
+                    tooltipContent += `<p><strong>GitHub Approvals Trusted:</strong> ${d.data.metadata.githubApprovalsTrusted}</p>`;
+                }
+                tooltipContent += '</div>';
+            }
+
+            // Add trust path information
+            if (isHighlighting) {
+                tooltipContent += '<p><strong>Click to highlight trust path</strong></p>';
+            }
+
+            tooltip.transition()
+                .duration(200)
+                .style("opacity", .9);
+            tooltip.html(tooltipContent)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function() {
+            d3.select(this).select("circle").classed("highlight", false);
+            tooltip.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+
+        // Add zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 2])
+            .on("zoom", (event) => {
+                svg.attr("transform", event.transform);
+            });
+
+        d3.select("svg").call(zoom);
+
+        // Add search functionality
+        document.getElementById("searchInput").addEventListener("input", function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            svg.selectAll(".node")
+                .each(function(d) {
+                    const node = d3.select(this);
+                    const isMatch = d.data.name.toLowerCase().includes(searchTerm) ||
+                        (d.data.metadata && d.data.metadata.keyids && 
+                         d.data.metadata.keyids.some(k => k.toLowerCase().includes(searchTerm)));
+                    node.style("opacity", isMatch ? 1 : 0.2);
+                });
+        });
+
+        // Add export functionality
+        function exportAsPNG() {
+            const svgElement = document.querySelector('svg');
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const pngData = canvas.toDataURL('image/png');
+                
+                const link = document.createElement('a');
+                link.download = 'gittuf-trust-dag.png';
+                link.href = pngData;
+                link.click();
+            };
+            
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }
+
+        function exportAsSVG() {
+            const svgElement = document.querySelector('svg');
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const svgUrl = URL.createObjectURL(svgBlob);
+            
+            const link = document.createElement('a');
+            link.download = 'gittuf-trust-dag.svg';
+            link.href = svgUrl;
+            link.click();
+            
+            URL.revokeObjectURL(svgUrl);
+        }
+
+        // Add export button handlers
+        document.getElementById('exportPNG').addEventListener('click', exportAsPNG);
+        document.getElementById('exportSVG').addEventListener('click', exportAsSVG);
+
+        // Add minimap functionality
+        function createMinimap() {
+            const minimap = d3.select("#minimap")
+                .append("svg")
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .append("g");
+
+            // Create a scaled down version of the main graph
+            const minimapScale = 0.15;
+            const minimapWidth = 200;
+            const minimapHeight = 150;
+
+            // Create minimap nodes
+            const minimapNodes = minimap.selectAll(".minimap-nodes")
+                .data(treeData.descendants())
+                .enter()
+                .append("g")
+                .attr("class", "minimap-nodes")
+                .attr("transform", d => `translate(${d.y * minimapScale},${d.x * minimapScale})`);
+
+            minimapNodes.append("circle")
+                .attr("r", 2)
+                .style("fill", d => d.data.type === "role" ? "#ffd700" :
+                                  d.data.type === "rule" ? "#98fb98" :
+                                  d.data.type === "namespace" ? "#87ceeb" :
+                                  d.data.type === "key" ? "#ffb6c1" : "#fff");
+
+            // Create minimap links
+            minimap.selectAll(".minimap-links")
+                .data(treeData.links())
+                .enter()
+                .append("path")
+                .attr("class", "minimap-links")
+                .attr("d", d3.linkHorizontal()
+                    .x(d => d.y * minimapScale)
+                    .y(d => d.x * minimapScale));
+
+            // Create viewport rectangle
+            const viewport = minimap.append("rect")
+                .attr("class", "minimap-viewport")
+                .attr("width", width * minimapScale)
+                .attr("height", height * minimapScale);
+
+            // Update viewport on zoom
+            d3.select("svg").on("zoom", function(event) {
+                const transform = event.transform;
+                viewport
+                    .attr("x", -transform.x * minimapScale)
+                    .attr("y", -transform.y * minimapScale)
+                    .attr("width", width * minimapScale / transform.k)
+                    .attr("height", height * minimapScale / transform.k);
+            });
+
+            // Add click handler to move main view
+            minimap.on("click", function(event) {
+                const rect = this.getBoundingClientRect();
+                const x = (event.clientX - rect.left) / minimapScale;
+                const y = (event.clientY - rect.top) / minimapScale;
+                
+                d3.select("svg").call(
+                    d3.zoom().transform,
+                    d3.zoomIdentity.translate(width/2 - x, height/2 - y)
+                );
+            });
+        }
+
+        // Create the minimap after the main visualization is set up
+        createMinimap();
+
+        // Add timeline functionality
+        const policyChanges = [
+            {
+                date: "2024-01-01",
+                description: "Initial Policy Setup",
+                changes: {
+                    "Root Role": {
+                        keyids: ["SHA256:initialKey1"],
+                        threshold: 1
+                    }
+                }
+            },
+            {
+                date: "2024-03-15",
+                description: "Added Targets Role",
+                changes: {
+                    "Targets Role": {
+                        keyids: ["SHA256:targetsKey1"],
+                        threshold: 1
+                    }
+                }
+            },
+            {
+                date: "2024-05-02",
+                description: "Current Policy",
+                changes: {
+                    "Root Role": {
+                        keyids: ["SHA256:XKLbCA5qIKrXZYsizSFqhbPq255mwmkcF4OBAc9wOIk"],
+                        threshold: 1
+                    },
+                    "Targets Role": {
+                        keyids: ["SHA256:kaOUPYzxFbhT/r/70icf98tmoimb/az3Y4Fs3ywsHzM"],
+                        threshold: 1
+                    }
+                }
+            }
+        ];
+
+        function createTimeline() {
+            const timeline = d3.select("#timelineEvents");
+            const slider = document.getElementById("timelineSlider");
+            const totalWidth = slider.offsetWidth;
+            
+            // Create timeline events
+            policyChanges.forEach((event, index) => {
+                const position = (index / (policyChanges.length - 1)) * totalWidth;
+                timeline.append("div")
+                    .attr("class", "timeline-event")
+                    .attr("data-date", event.date)
+                    .style("left", `${position}px`);
+            });
+
+            // Update visualization based on slider
+            slider.addEventListener("input", function() {
+                const value = parseInt(this.value);
+                const currentIndex = Math.floor((value / 100) * (policyChanges.length - 1));
+                
+                // Update timeline events
+                d3.selectAll(".timeline-event")
+                    .classed("active", (d, i) => i === currentIndex);
+                
+                // Add smooth transition to the visualization update
+                svg.transition()
+                    .duration(500)
+                    .ease(d3.easeLinear)
+                    .on("end", () => {
+                        updateVisualization(policyChanges[currentIndex]);
+                    });
+            });
+        }
+
+        function updateVisualization(policyState) {
+            // Clear previous changes
+            svg.selectAll(".node")
+                .classed("changed", false)
+                .select("circle")
+                .style("stroke", d => {
+                    switch(d.data.type) {
+                        case "role": return "#b8860b";
+                        case "rule": return "#2e8b57";
+                        case "namespace": return "#4682b4";
+                        case "key": return "#cd5c5c";
+                        default: return "steelblue";
+                    }
+                })
+                .style("stroke-width", "3px")
+                .style("filter", "drop-shadow(0 0 2px rgba(0,0,0,0.3))");
+
+            // Update node metadata based on policy state
+            svg.selectAll(".node")
+                .each(function(d) {
+                    const node = d3.select(this);
+                    const nodeName = d.data.name;
+                    
+                    if (policyState.changes[nodeName]) {
+                        // Mark node as changed
+                        node.classed("changed", true);
+                        
+                        // Create change tooltip
+                        const tooltip = d3.select("body")
+                            .append("div")
+                            .attr("class", "change-tooltip")
+                            .style("left", (d.y + margin.left) + "px")
+                            .style("top", (d.x + margin.top - 30) + "px")
+                            .text("Changed in this version");
+
+                        // Show tooltip
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 1);
+
+                        // Add hover effect for changed nodes
+                        node.on("mouseover", function() {
+                            d3.select(this).select("circle")
+                                .style("transform", "scale(1.2)");
+                            tooltip.transition()
+                                .duration(200)
+                                .style("opacity", 1);
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this).select("circle")
+                                .style("transform", "scale(1)");
+                            tooltip.transition()
+                                .duration(200)
+                                .style("opacity", 0)
+                                .remove();
+                        });
+
+                        // Update metadata display
+                        const metadata = policyState.changes[nodeName];
+                        node.select(".metadata-label")
+                            .text(() => {
+                                if (metadata.threshold) return `Threshold: ${metadata.threshold}`;
+                                if (metadata.keyids) return `Key IDs: ${metadata.keyids.join(', ')}`;
+                                return "";
+                            })
+                            .style("fill", "#2196F3");
+                    }
+                });
+
+            // Add change description
+            const changeDescription = d3.select("#timeline")
+                .append("div")
+                .attr("class", "change-description")
+                .style("position", "absolute")
+                .style("bottom", "10px")
+                .style("left", "10px")
+                .style("background", "white")
+                .style("padding", "10px")
+                .style("border-radius", "4px")
+                .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)")
+                .html(`<strong>${policyState.date}:</strong> ${policyState.description}`);
+
+            // Remove previous change description after 3 seconds
+            setTimeout(() => {
+                changeDescription.transition()
+                    .duration(500)
+                    .style("opacity", 0)
+                    .remove();
+            }, 3000);
+        }
+
+        // Create the timeline after the main visualization is set up
+        createTimeline();
+    </script>
+</body>
+</html> 

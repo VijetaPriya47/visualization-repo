@@ -1,0 +1,41 @@
+{
+  "type": "root",
+  "expires": "2026-05-02T15:52:07+05:30",
+  "keys": {
+    "SHA256:XKLbCA5qIKrXZYsizSFqhbPq255mwmkcF4OBAc9wOIk": {
+      "keyid_hash_algorithms": null,
+      "keytype": "ssh",
+      "keyval": {
+        "public": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBORLxYRXj/YKz/rztouR
+uDBkl/GH6ey6iQajd37V6bGD3/OQ+Zcoc4YDwbrRpWW1oXkkWf4pRh31oWPvADlFIbU="
+      },
+      "scheme": "ecdsa-sha2-nistp256",
+      "keyid": "SHA256:XKLbCA5qIKrXZYsizSFqhbPq255mwmkcF4OBAc9wOIk"
+    },
+    "SHA256:kaOUPYzxFbhT/r/70icf98tmoimb/az3Y4Fs3ywsHzM": {
+      "keyid_hash_algorithms": null,
+     "keytype": "ssh",
+      "keyval": {
+        "public": "AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDu0PQuTRAIUvaNuyK+w
+o1ToosCL3W1tnj8zMEXww68axUz1QyGr9/Hb1LuAxR5YMozdPyAYqh1+/8opOqCI80c="
+      },
+      "scheme": "ecdsa-sha2-nistp256",
+      "keyid": "SHA256:kaOUPYzxFbhT/r/70icf98tmoimb/az3Y4Fs3ywsHzM"
+    }
+  },
+  "roles": {
+    "root": {
+      "keyids": [
+        "SHA256:XKLbCA5qIKrXZYsizSFqhbPq255mwmkcF4OBAc9wOIk"
+      ],
+      "threshold": 1
+    },
+    "targets": {
+      "keyids": [
+        "SHA256:kaOUPYzxFbhT/r/70icf98tmoimb/az3Y4Fs3ywsHzM"
+      ],
+      "threshold": 1
+    }
+  },
+  "githubApprovalsTrusted": false
+}
